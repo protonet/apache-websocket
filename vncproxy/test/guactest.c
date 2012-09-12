@@ -42,7 +42,7 @@ int timeout = 30;
 #define DATALENGTH 65536
 #define MAXCMDLENGTH 128
 
-char * initialdata = "4.size,1.0,4.1024,3.768;";
+char * initialdata = "5.reset,1.0;4.size,1.0,4.1024,3.768;5.reset,1.0;";
 char * subsequentdata = NULL;
 
 gtconnection_t_list_t gtconnectionlist;
@@ -74,7 +74,7 @@ makedata()
       int g=random() % 256;
       int b=random() % 256;
       int a=random() % 256;
-      p+=snprintf(p, space, "4.rect,1.0,1.0,%d.%d,%d.%d,%d.%d,%d.%d;",
+      p+=snprintf(p, space, "4.rect,1.0,%d.%d,%d.%d,%d.%d,%d.%d;",
 		  plen(x),x,
 		  plen(y),y,
 		  plen(w),w,
