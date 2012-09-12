@@ -1,0 +1,48 @@
+CoreDumpDirectory /tmp
+
+<VirtualHost *:80>
+	ServerAdmin noone@example.com
+	DocumentRoot /path/to/guacamole-0.6.1
+	
+	AddHandler cgi-script .pl
+	RewriteEngine on
+
+	Options +ExecCGI
+	Options -Indexes
+
+	LogLevel Debug
+
+#        DBDriver mysql
+#        DBDParams "host=127.0.0.1 dbname=vnc user=XXXX pass=XXXX"
+#
+#        DBDMin  0
+#        DBDKeep 0
+#        DBDMax  1
+#        DBDExptime 300
+#        DBDPersist Off
+
+       <IfModule reqtimeout_module>
+                  RequestReadTimeout body=300,minrate=1
+       </IfModule>
+       <IfModule mod_websocket.c>
+                <Location /vncproxyg>
+                          # Satisfy any
+                          # AuthType none
+                          # Require all granted
+                          SetHandler websocket-handler
+                          WebSocketHandler  /usr/lib/apache2/modules/mod_websocket_vnc_proxy.so vnc_proxy_init
+                          WebSocketTcpProxyBase64 off
+                          WebSocketTcpProxyHost 127.0.0.1
+                          WebSocketTcpProxyPort 4823
+                          WebSocketTcpProxyProtocol guacamole
+			  WebSocketTcpProxyGuacamole on
+#                          WebSocketTcpProxyQuery "SELECT vnc_server_node AS hostname, vnc_server_port AS port, vnc_proxy_ip AS connecthost, vnc_proxy_port AS connectport, '' AS encodings, 'XXXX' AS password, 0 AS swap_read_blue, 0 AS read_only FROM vnc_session WHERE session_key=%s"
+#                          WebSocketTcpProxySendInitialData on
+#                          WebSocketTcpProxySecret XXXXX
+                          WebSocketTcpProxyTimeout 3600
+                          # WebSocketTcpProxyLocalIP 192.168.250.142
+                </Location>
+        </IfModule>
+
+
+</VirtualHost>
