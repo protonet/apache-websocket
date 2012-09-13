@@ -45,6 +45,7 @@ $(OUTPUT)/%.o: %.c $(IMGH)
 
 # generate a .h file containing the images
 $(IMGH): $(IMGS) makeimages
+	@mkdir -p $(BUILDDIRS)
 	./makeimages $(IMGS) > $(IMGH)
 
 .PHONY: all clean
