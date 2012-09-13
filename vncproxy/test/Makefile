@@ -11,6 +11,9 @@ CFLAGS = -Wall -c $(DEBUG) -I. -lpthread
 LFLAGS = -Wall $(DEBUG) -lpthread
 CC = gcc
 
+IMGS = daisy-glass-art.png dandelions-2.png red-tulips-flower.png single-pixel.png
+IMGH = $(OUTPUT)/image.h
+
 # Work out the build directory variants
 BUILDOBJECTS := $(patsubst %o, $(OUTPUT)/%o, $(OBJS))
 
@@ -31,7 +34,7 @@ $(OUTPUT)/$(TARGET): $(BUILDOBJECTS)
 -include $(BUILDOBJECTS:.o=.d)
 
 # autogenerate dependencies after a successful compilation
-$(OUTPUT)/%.o: %.c
+$(OUTPUT)/%.o: %.c $(IMGH)
 	@mkdir -p $(BUILDDIRS)
 	$(CC) -c $(CFLAGS) -MMD -MP -MF"$(OUTPUT)/$*.d" -o $@ $<
 	@mv -f $(OUTPUT)/$*.d $(OUTPUT)/$*.d.tmp
@@ -39,6 +42,10 @@ $(OUTPUT)/%.o: %.c
 	@sed -e 's/.*://' -e 's/\\$$//' < $(OUTPUT)/$*.d.tmp | fmt -1 | \
 	  sed -e 's/^ *//' -e 's/$$/:/' >> $(OUTPUT)/$*.d
 	@rm -f $(OUTPUT)/$*.d.tmp
+
+# generate a .h file containing the images
+$(IMGH): $(IMGS) makeimages
+	./makeimages $(IMGS) > $(IMGH)
 
 .PHONY: all clean
 

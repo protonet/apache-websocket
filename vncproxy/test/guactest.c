@@ -8,6 +8,7 @@
 #include "guactest.h"
 #include "list.h"
 #include "utils.h"
+#include "../build/guactest/image.h"
 
 DEBUGFILE;
 
@@ -38,12 +39,16 @@ volatile sig_atomic_t master_rxsig_pipe = 0;
 
 int listenport = 4823;
 int timeout = 30;
+int doimages = 0;
+int imgloops=1;
 
 #define DATALENGTH 65536
 #define MAXCMDLENGTH 128
 
-char * initialdata = "5.reset,1.0;4.size,1.0,4.1024,3.768;5.reset,1.0;";
+char * initialdata = "5.reset,1.0;4.size,1.0,4.1024,3.768;5.reset,1.0;3.png,1.0,1.0,1.0,1.0," IMAGE_SINGLE_PIXEL ";";
 char * subsequentdata = NULL;
+
+char * images [] = {IMAGE_DAISY_GLASS_ART, IMAGE_DANDELIONS_2, IMAGE_RED_TULIPS_FLOWER};
 
 gtconnection_t_list_t gtconnectionlist;
 
@@ -64,26 +69,46 @@ makedata()
 {
   char * p;
   int space;
-  for (p = subsequentdata; (space = subsequentdata + DATALENGTH - p, space > MAXCMDLENGTH); )
+  if (doimages)
     {
-      int x=random() % 1024;
-      int y=random() % 768;
-      int w=1+random() % 512;
-      int h=1+random() % 384;
-      int r=random() % 256;
-      int g=random() % 256;
-      int b=random() % 256;
-      int a=random() % 256;
-      p+=snprintf(p, space, "4.rect,1.0,%d.%d,%d.%d,%d.%d,%d.%d;",
-		  plen(x),x,
-		  plen(y),y,
-		  plen(w),w,
-		  plen(h),h);
-      p+=snprintf(p, space, "5.cfill,1.0,1.0,%d.%d,%d.%d,%d.%d,%d.%d;",
-		  plen(r),r,
-		  plen(g),g,
-		  plen(b),b,
-		  plen(a),a);
+      int i;
+      int j;
+      p = subsequentdata;
+      for (j=0; j<imgloops; j++)
+	for (i=0; i<3; i++)
+	  {
+	    int x=-1024+random() % (1024*2);
+	    int y=-768+random() % (768*2);
+	    p+=sprintf(p, "3.png,1.0,1.0,%d.%d,%d.%d,%s;",
+		       plen(x),x,
+		       plen(y),y,
+		       images[i]);
+	  }
+    }
+  else
+    {
+      for (p = subsequentdata; (space = subsequentdata + DATALENGTH - p, space > MAXCMDLENGTH); )
+	{
+	  int w=1+random() % 512;
+	  int h=1+random() % 384;
+	  /* x ranges from -w+1 to 1023, y from -h+1 to 768 */
+	  int x=-w+random() % (1024+w);
+	  int y=-h+random() % (768+h);
+	  int r=random() % 256;
+	  int g=random() % 256;
+	  int b=random() % 256;
+	  int a=random() % 256;
+	  p+=snprintf(p, space, "4.rect,1.0,%d.%d,%d.%d,%d.%d,%d.%d;",
+		      plen(x),x,
+		      plen(y),y,
+		      plen(w),w,
+		      plen(h),h);
+	  p+=snprintf(p, space, "5.cfill,1.0,1.0,%d.%d,%d.%d,%d.%d,%d.%d;",
+		      plen(r),r,
+		      plen(g),g,
+		      plen(b),b,
+		      plen(a),a);
+	}
     }
 }
 
@@ -489,11 +514,16 @@ main (int argc, char **argv)
 {
   processdebugoptions("7");
 
+  if ((argc>1) && !strcmp(argv[1], "-i"))
+    doimages = 1;
+
   startsyslog ();
 
   dolog (LOG_NOTICE, "Starting up");
 
-  subsequentdata = calloc (1, DATALENGTH+MAXCMDLENGTH+1);
+  subsequentdata = calloc (1, doimages?
+			   (imgloops*((strlen(images[0])+strlen(images[1])+strlen(images[2]))+MAXCMDLENGTH+1))
+			   :(DATALENGTH+MAXCMDLENGTH+1));
   makedata();
 
   mastermainloop ();

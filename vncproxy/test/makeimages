@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use MIME::Base64;
+
+my $file;
+my $buf;
+
+foreach my $fn (@ARGV)
+{
+    open($file, $fn) or die "$!";
+
+    my $name = uc($fn);
+    $name=~s/\.\w*$//g;
+    $name=~s/^.*\///g;
+    $name=~s/\W/_/g;
+    $name="IMAGE_".$name;
+
+    my $s="";
+    while (read($file, $buf, 60*57))
+    {
+	$s.=encode_base64($buf,"");
+    }
+
+    printf "#define $name \"%d.%s\"\n\n", length($s), $s;
+    
+    close $file;
+}
