@@ -472,10 +472,31 @@ static void mod_websocket_data_framing(const WebSocketServer *server,
 {
     WebSocketState *state = server->state;
     request_rec *r = state->r;
-    apr_bucket_brigade *obb =
-        apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
-    if (obb != NULL) {
+    /* We cannot use the same bucket allocator for the ouput bucket brigade
+     * obb as the one associated with the connection (r->connection->bucket_alloc)
+     * because the same bucket allocator cannot be used in two different
+     * threads, and we use the connection bucket allocator in this
+     * thread - see docs on apr_bucket_alloc_create(). This results in
+     * occasional core dumps. So create our own bucket allocator and pool
+     * for output thread bucket brigade.
+     */
+
+    apr_thread_mutex_t *oallocatormutex = NULL;
+    apr_allocator_t * oallocator = NULL;
+    apr_pool_t *opool = NULL;
+    apr_bucket_alloc_t *obucketallocator = NULL;
+    apr_bucket_brigade * obb = NULL;
+    
+    if (
+        ( apr_thread_mutex_create(&oallocatormutex, APR_THREAD_MUTEX_UNNESTED, r->pool) == APR_SUCCESS) &&
+        ( apr_allocator_create(&oallocator) == APR_SUCCESS) &&
+        ( apr_allocator_mutex_set(oallocator, oallocatormutex), 1 ) &&
+        ( apr_pool_create_ex(&opool, NULL, NULL, oallocator) == APR_SUCCESS) && /* WARNING: pool has no parent */
+        ( NULL != (obucketallocator = apr_bucket_alloc_create(opool))) &&
+        ( NULL != (obb = apr_brigade_create(opool, obucketallocator)))
+        ) {
+
         unsigned char block[BLOCK_DATA_SIZE];
         apr_int64_t block_size;
         apr_int64_t extension_bytes_remaining = 0;
@@ -808,7 +829,15 @@ static void mod_websocket_data_framing(const WebSocketServer *server,
         /* We are done with the bucket brigade */
         apr_thread_mutex_lock(state->mutex);
         state->obb = NULL;
-        apr_brigade_destroy(obb);
+
+        /* Destroy the pool (which does not have a parent) manually
+         * which will destroy (inter alia) the bucket brigade and
+         * bucket brigade allocator
+         */
+        apr_pool_destroy(opool);
+        apr_allocator_destroy(oallocator);
+        /* No need to destroy the mutex as that belongs to r->pool */
+
     }
 }
 
@@ -932,7 +961,7 @@ static int mod_websocket_method_handler(request_rec *r)
                     }
 
                     apr_thread_mutex_create(&state.mutex,
-                                            APR_THREAD_MUTEX_DEFAULT,
+                                            APR_THREAD_MUTEX_UNNESTED,
                                             r->pool);
                     apr_thread_mutex_lock(state.mutex);
 
